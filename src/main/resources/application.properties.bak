@@ -1,0 +1,96 @@
+spring.shardingsphere.datasource.names=m1,m2
+spring.shardingsphere.datasource.m1.type=com.alibaba.druid.pool.DruidDataSource
+spring.shardingsphere.datasource.m1.driver-class-name=com.mysql.cj.jdbc.Driver
+spring.shardingsphere.datasource.m1.url=jdbc:mysql://192.168.11.12:3340/sharding_1?serverTimezone=GMT%2B8
+spring.shardingsphere.datasource.m1.username=root
+spring.shardingsphere.datasource.m1.password=123456
+
+spring.shardingsphere.datasource.m2.type=com.alibaba.druid.pool.DruidDataSource
+spring.shardingsphere.datasource.m2.driver-class-name=com.mysql.cj.jdbc.Driver
+spring.shardingsphere.datasource.m2.url=jdbc:mysql://192.168.11.12:3342/sharding_2?serverTimezone=GMT%2B8
+spring.shardingsphere.datasource.m2.username=root
+spring.shardingsphere.datasource.m2.password=123456
+
+
+# course 是逻辑表， 他下面分布的真实表 course_1 course_2  groovy表达方式
+spring.shardingsphere.sharding.tables.course.actual-data-nodes=m$->{1..2}.course_$->{1..2}
+
+# 使用雪花算法生成 cid 列的内容
+spring.shardingsphere.sharding.tables.course.key-generator.column=cid
+spring.shardingsphere.sharding.tables.course.key-generator.type=SNOWFLAKE
+# 雪花算法需要的参数，可以不写
+spring.shardingsphere.sharding.tables.course.key-generator.props.worker.id=2
+# 分片键
+spring.shardingsphere.sharding.tables.course.table-strategy.inline.sharding-column=cid
+# 分片算法, 按照 cid 模2 + 1 的结果来选择目标表
+spring.shardingsphere.sharding.tables.course.table-strategy.inline.algorithm-expression=course_$->{cid%2+1}
+
+spring.shardingsphere.sharding.tables.course.database-strategy.inline.sharding-column=cid
+# 分片算法, 按照 cid 模2 + 1 的结果来选择目标表
+spring.shardingsphere.sharding.tables.course.database-strategy.inline.algorithm-expression=m$->{cid%2+1}
+
+
+
+
+# 指定逻辑表和真实表的对应关系
+spring.shardingsphere.sharding.tables.dept.actual-data-nodes=m$->{1..2}.dept_$->{1..2}
+# 使用雪花算法生成 did 列的内容
+spring.shardingsphere.sharding.tables.dept.key-generator.column=did
+spring.shardingsphere.sharding.tables.dept.key-generator.type=SNOWFLAKE
+
+## 标准策略分片
+## 分表时选择did作为分片键
+spring.shardingsphere.sharding.tables.dept.table-strategy.standard.sharding-column=did
+# 支持精确查询和范围查询，都需要自己实现分片算法
+# 精确查询时选择表
+spring.shardingsphere.sharding.tables.dept.table-strategy.standard.precise-algorithm-class-name=io.dc.shardingjdbc.algorithm.DeptTablePreciseAlgorithm
+# 范围查询时选择表
+spring.shardingsphere.sharding.tables.dept.table-strategy.standard.range-algorithm-class-name=io.dc.shardingjdbc.algorithm.DeptTableRangeAlgorithm
+
+## 分库时选择did作为分片键
+spring.shardingsphere.sharding.tables.dept.database-strategy.standard.sharding-column=did
+# 精确查询时选择库
+spring.shardingsphere.sharding.tables.dept.database-strategy.standard.precise-algorithm-class-name=io.dc.shardingjdbc.algorithm.DeptDsPreciseAlgorithm
+# 范围查询时选择库
+spring.shardingsphere.sharding.tables.dept.database-strategy.standard.range-algorithm-class-name=io.dc.shardingjdbc.algorithm.DeptDsRangeAlgorithm
+
+
+# 对 message 表进行分表分库， 采用复杂策略
+spring.shardingsphere.sharding.tables.message.actual-data-nodes=m$->{1..2}.message_$->{1..3}
+spring.shardingsphere.sharding.tables.message.key-generator.column=mid
+spring.shardingsphere.sharding.tables.message.key-generator.type=SNOWFLAKE
+# 雪花算法需要的参数，可以不写(工作机器编号，生成分布式id需要)
+spring.shardingsphere.sharding.tables.message.key-generator.props.worker.id=2
+# 复杂策略分片
+# 分片键
+spring.shardingsphere.sharding.tables.message.table-strategy.complex.sharding-columns=type,created_time
+spring.shardingsphere.sharding.tables.message.table-strategy.complex.algorithm-class-name=io.dc.shardingjdbc.algorithm.MessageTableComplexSharing
+spring.shardingsphere.sharding.tables.message.database-strategy.complex.sharding-columns=type,created_time
+spring.shardingsphere.sharding.tables.message.database-strategy.complex.algorithm-class-name=io.dc.shardingjdbc.algorithm.MessageDatabaseComplexSharing
+
+
+# 对user表采用强制路由策略
+spring.shardingsphere.sharding.tables.user.actual-data-nodes=m$->{1..2}.user_$->{1..2}
+spring.shardingsphere.sharding.tables.user.key-generator.column=uid
+spring.shardingsphere.sharding.tables.user.key-generator.type=snowflake
+# 雪花算法需要的参数，可以不写(工作机器编号，生成分布式id需要)
+spring.shardingsphere.sharding.tables.user.key-generator.props.worker.id=2
+# 强制路由策略分片, 没有分片键，因为它不再依赖sql了。在程序中直接指定
+spring.shardingsphere.sharding.tables.user.table-strategy.hint.algorithm-class-name=io.dc.shardingjdbc.algorithm.UserTableHintSharding
+spring.shardingsphere.sharding.tables.user.database-strategy.hint.algorithm-class-name=io.dc.shardingjdbc.algorithm.UserDatabaseHintSharding
+
+# 广播表, 见名思意，就是每个数据库中都会全量存一份的表
+# 一般是配置表，表中数据变化比较少，关联次数比较多的表
+spring.shardingsphere.sharding.broadcast-tables=dict
+# 配置主键生成策略
+spring.shardingsphere.sharding.tables.dict.key-generator.column=did
+spring.shardingsphere.sharding.tables.dict.key-generator.type=SNOWFLAKE
+
+
+spring.shardingsphere.props.sql.show = true
+spring.main.allow-bean-definition-overriding=true
+
+
+
+
+
